@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+
+import time as t, datetime as d
+import json
+
+year = d.datetime.today().year
+
+events = []
+
+with open('events.log') as fp:
+    for line in fp:
+        xs = line.split(' ')
+        
+        # role
+        role = xs[0].split(':')[1]
+        
+        # timestamp
+        tstr = '%d %s %s %s' % (year, xs[1], xs[2], xs[3][:-4])
+        sec = t.mktime(t.strptime(tstr, '%Y %d %b %H:%M:%S'))
+        msec = int(sec*1000) + int(xs[3][-3:])
+
+        # node id
+        fid = xs[6]
+        tid = xs[8]
+        
+        event_dir = xs[7]
+        event_type = xs[9].strip()
+
+        events.append({
+            'id': fid,
+            'tid': tid,
+            'type': event_type,
+            'role': role,
+            'time': msec,
+            'dir': event_dir,
+        })
+
+with open('events.json', 'w') as f:
+    json.dump(events, f, indent=2)
+
+print 'write', len(events), 'events'

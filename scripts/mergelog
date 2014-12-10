@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -x
+
+rm events-tmp.log
+touch events-tmp.log
+
+for port in 3000 3001 3002 3003 4000 4001 4002 4003; do
+    grep -P "\[C\]" $port/$port.log >> events-tmp.log
+done
+
+sort -k 3 events-tmp.log > events.log
+rm events-tmp.log
