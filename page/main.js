@@ -1,6 +1,8 @@
 $(function(){
 
   var pingColor = '#8B008B';
+  var failColor = 'red';
+  var pfailColor = 'yellow';
 
   var cy = cytoscape({
     container: document.getElementById('cy'),
@@ -31,6 +33,16 @@ $(function(){
       .css({
         'target-arrow-color': pingColor,
         'line-color': pingColor
+      })
+      .selector('.edge-mark-fail')
+      .css({
+        'target-arrow-color': failColor,
+        'line-color': failColor
+      })
+      .selector('.edge-mark-pfail')
+      .css({
+        'target-arrow-color': pfailColor,
+        'line-color': pfailColor
       }),
 
     layout: {
@@ -67,12 +79,12 @@ $(function(){
   function N(t) { return cy.$('#' + t); }
   function E(f, t) { return cy.$('#' + f + '_to_' + t); }
 
-  function simPingSend(from, to) {
+  function simSendPing(from, to) {
     N(from).addClass('node-ping');
     E(from, to).addClass('edge-send-ping');
   }
 
-  function simPingRecv(from, to) {
+  function simRecvPing(from, to) {
     N(from).removeClass('node-ping');
     E(from, to).removeClass('edge-send-ping');
     N(to).flashClass('node-ping', 100);
@@ -82,20 +94,36 @@ $(function(){
   function simSendFail(from, to) {
   }
 
-  function handleEvent(event) {
-    addEdge(event.id, event.tid);
+  function simRecvFail(from, to) {
+  }
 
-    if (event.type == 'PING' && event.dir == 'S') {
-      simPingSend(event.id, event.tid);
-    }
-    if (event.type == 'PING' && event.dir == 'R') {
-      simPingRecv(event.tid, event.id);
-    }
-    if (event.type == 'PONG' && event.dir == 'S') {
-      simPingSend(event.id, event.tid);
-    }
-    if (event.type == 'PONG' && event.dir == 'R') {
-      simPingRecv(event.tid, event.id);
+  function simMarkFail(from, to) {
+    E(from, to).removeClass('edge-mark-pfail');
+    E(from, to).addClass('edge-mark-fail');
+  }
+
+  function simMarkPFail(from, to) {
+    E(from, to).removeClass('edge-mark-pfail');
+    E(from, to).addClass('edge-mark-pfail');
+  }
+
+  function handleEvent(e) {
+    addEdge(e.id, e.tid);
+
+    switch (e.type) {
+    case 'PING':
+    case 'PONG':
+      if (e.dir == 'S') simSendPing(e.id, e.tid);
+      if (e.dir == 'R') simRecvPing(e.tid, e.id);
+      break;
+    case 'PFAIL':
+      simMarkPFail(e.id, e.tid);
+      break;
+    case 'FAIL':
+      console.log(e);
+      if (e.dir == 'U') simMarkFail(e.id, e.tid);
+      if (e.dir == 'R') simRecvFail(e.id, e.extra);
+      break;
     }
   }
 
@@ -118,7 +146,7 @@ $(function(){
     }
   }
 
-  $.getJSON("http://127.0.0.1:8080/events.json", function(events){
+  $.getJSON("events.json", function(events){
     handleEvents(events);
   });
 });
