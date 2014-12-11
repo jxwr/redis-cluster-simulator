@@ -1,57 +1,52 @@
 $(function(){
+  var timeScalar = 0.01;
 
   var pingColor = '#8B008B';
-  var failColor = 'red';
   var pfailColor = 'yellow';
+  var failColor = 'red';
+  var masterColor = '#CE767E';
+  var slaveColor = '#FACDDF';
 
   var cy = cytoscape({
     container: document.getElementById('cy'),
     
     style: cytoscape.stylesheet()
-      .selector('node')
-      .css({
+      .selector('node').css({
         'content': 'data(id)',
-        'background-color': '#6272A3',
+        'border-width': 15,
+        'background-color': '#eee',
       })
-      .selector('.node-ping')
-      .css({
+      .selector('.node-ping').css({
         'content': 'data(id)',
         'background-color': pingColor
       })
-      .selector('edge')
-      .css({
-        'source-arrow-shape': 'circle',
+      .selector('edge').css({
+        'source-arrow-shape': 'none',
         'target-arrow-shape': 'triangle',
+        'line-color': '#eee',
         'width': 2,
-        'line-color': '#ddd',
       })
-      .selector('.edge-send-ping')
-      .css({
+      .selector('.edge-send-ping').css({
         'source-arrow-color': pingColor
       })
-      .selector('.edge-recv-ping')
-      .css({
+      .selector('.edge-recv-ping').css({
         'target-arrow-color': pingColor,
         'line-color': pingColor
       })
-      .selector('.edge-mark-fail')
-      .css({
-        'target-arrow-color': failColor,
-        'line-color': failColor
+      .selector('.edge-mark-fail').css({
+        'line-color': failColor,
+        'opacity': 0
       })
-      .selector('.edge-mark-pfail')
-      .css({
+      .selector('.edge-mark-pfail').css({
         'target-arrow-color': pfailColor,
         'line-color': pfailColor
-      }),
-
-    layout: {
-      name: 'circle',
-      padding: 20
-    }
+      })
   });
 
-  function addNode(id) {
+  function N(t)    { return cy.$('#' + t); }
+  function E(f, t) { return cy.$('#' + f + '_to_' + t); }
+
+  function makeNode(id) {
     var e = cy.getElementById(id);
     if (e.length > 0) return;
     
@@ -61,14 +56,21 @@ $(function(){
     });
     cy.layout({name: 'circle'});
   }
+  
+  function updateNode(id, role) {
+    var e = cy.getElementById(id);
+    if (e.length == 0) return;
 
-  function addEdge(fid, tid) {
+    e.css('border-color', role == 'M' ? masterColor : slaveColor);
+  }
+
+  function makeEdge(fid, tid) {
     var id = fid + '_to_' + tid;
     var e = cy.getElementById(id);
     if (e.length > 0) return;
 
-    addNode(fid);
-    addNode(tid);
+    makeNode(fid);
+    makeNode(tid);
     cy.add({
       group: "edges",
       data: {id: id, source: fid, target: tid}
@@ -76,39 +78,47 @@ $(function(){
     cy.layout({name: 'circle'});
   }
 
-  function N(t) { return cy.$('#' + t); }
-  function E(f, t) { return cy.$('#' + f + '_to_' + t); }
+  /// simulators
 
-  function simSendPing(from, to) {
-    N(from).addClass('node-ping');
-    E(from, to).addClass('edge-send-ping');
+  function simSendPing(id, tid) {
+//    N(id).addClass('node-ping');
+//    E(id, tid).addClass('edge-send-ping');
   }
 
-  function simRecvPing(from, to) {
-    N(from).removeClass('node-ping');
-    E(from, to).removeClass('edge-send-ping');
-    N(to).flashClass('node-ping', 100);
-    E(from, to).flashClass('edge-recv-ping', 200);
+  function simRecvPing(id, tid) {
+    N(id).removeClass('node-ping');
+    E(id, tid).removeClass('edge-send-ping');
+    N(tid).flashClass('node-ping', 100);
+    E(id, tid).flashClass('edge-recv-ping', 80);
   }
 
-  function simSendFail(from, to) {
+  function simSendFail(id, tid) {
   }
 
-  function simRecvFail(from, to) {
+  function simRecvFail(id, tid, failId) {
+    E(id, failId).removeClass('edge-mark-pfail');
+    E(id, failId).addClass('edge-mark-fail');
+    E(failId, id).addClass('edge-mark-fail');
+    N(tid).css('border-color', '#ccc');
   }
 
-  function simMarkFail(from, to) {
-    E(from, to).removeClass('edge-mark-pfail');
-    E(from, to).addClass('edge-mark-fail');
+  function simMarkFail(id, tid) {
+    E(id, tid).removeClass('edge-mark-pfail');
+    E(id, tid).addClass('edge-mark-fail');
+    E(tid, id).addClass('edge-mark-fail');
+    N(tid).css('border-color', '#ccc');
   }
 
-  function simMarkPFail(from, to) {
-    E(from, to).removeClass('edge-mark-pfail');
-    E(from, to).addClass('edge-mark-pfail');
+  function simMarkPFail(id, tid) {
+    E(id, tid).removeClass('edge-mark-pfail');
+    E(id, tid).addClass('edge-mark-pfail');
   }
+
+  /// dispather
 
   function handleEvent(e) {
-    addEdge(e.id, e.tid);
+    makeEdge(e.id, e.tid);
+    updateNode(e.id, e.role);
 
     switch (e.type) {
     case 'PING':
@@ -122,12 +132,11 @@ $(function(){
     case 'FAIL':
       console.log(e);
       if (e.dir == 'U') simMarkFail(e.id, e.tid);
-      if (e.dir == 'R') simRecvFail(e.id, e.extra);
+      if (e.dir == 'R') simRecvFail(e.id, e.tid, e.extra);
       break;
     }
   }
 
-  var timeScalar = 1;
   function handleEvents(events) {
     var e = events.shift();
     if (!e) return;

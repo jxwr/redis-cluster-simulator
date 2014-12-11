@@ -26,8 +26,7 @@ with open('events.log') as fp:
         event_dir = xs[7]
         event_type = xs[9].strip()
         extra = None
-        if len(xs) > 10:
-            extra = ' '.join(xs[10:])
+        if len(xs) > 10: extra = ' '.join(xs[10:]).strip()
 
         events.append({
             'id': fid,
